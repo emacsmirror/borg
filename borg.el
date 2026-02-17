@@ -45,9 +45,6 @@
 
 ;;; Code:
 
-(put 'if-let 'byte-obsolete-info nil)
-(put 'when-let 'byte-obsolete-info nil)
-
 (defun borg-report-load-duration (&optional file format-string)
   "Report how long it takes to load the file currently being loaded.
 
@@ -676,15 +673,15 @@ and optional NATIVE are both non-nil, then also compile natively."
                        (funcall borg-build-shell-command clone)
                      borg-build-shell-command)))
     (borg--load-config "etc/borg/config.el")
-    (if-let ((commands (borg-get-all clone "build-step")))
+    (if-let* ((commands (borg-get-all clone "build-step")))
         (borg--run-build-commands clone commands build-cmd)
       (let ((path (mapcar #'file-name-as-directory (borg-load-path clone))))
         (borg-update-autoloads clone path)
         (borg-compile clone path)
         (borg-maketexi clone)
         (borg-makeinfo clone)))
-    (when-let ((commands
-                (borg--module-config "--get-all" "borg.extra-build-step")))
+    (when-let* ((commands
+                 (borg--module-config "--get-all" "borg.extra-build-step")))
       (borg--run-build-commands clone commands build-cmd))))
 
 (defun borg--run-build-commands (clone commands build-command)
@@ -846,7 +843,7 @@ and optional NATIVE are both non-nil, then also compile natively."
                                       (file-name-directory load-file-name)))
                                 (car load-path))))
              nil t))
-          (when-let ((buf (find-buffer-visiting file)))
+          (when-let* ((buf (find-buffer-visiting file)))
             (kill-buffer buf)))
 
       ;; For Emacs 28.
@@ -865,7 +862,7 @@ and optional NATIVE are both non-nil, then also compile natively."
                           nil file nil 'silent)))
         (borg--silence-loaddefs-generate
           (make-directory-autoloads path file)))
-      (when-let ((buf (find-buffer-visiting file)))
+      (when-let* ((buf (find-buffer-visiting file)))
         (kill-buffer buf)))))
 
 (defun borg-compile (clone &optional path)
@@ -886,8 +883,8 @@ and optional NATIVE are both non-nil, then also compile natively."
          (let ((file-relative (file-relative-name file topdir))
                (name (file-name-nondirectory file)))
            (if (file-directory-p file)
-               (when (and (if-let ((v (borg-get
-                                       clone "recursive-byte-compile")))
+               (when (and (if-let* ((v (borg-get
+                                        clone "recursive-byte-compile")))
                               (member v '("yes" "on" "true" "1"))
                             borg-compile-recursively)
                           (not (file-symlink-p file))
@@ -1174,7 +1171,7 @@ The Git directory is not removed."
   "Insert information about drones that are changed in the index.
 Formatting is according to the commit message conventions."
   (interactive)
-  (when-let ((alist (borg--drone-states)))
+  (when-let* ((alist (borg--drone-states)))
     (let ((width (apply #'max (mapcar (lambda (e) (length (car e))) alist)))
           (align (cl-member-if (pcase-lambda (`(,_ ,_ ,version))
                                  (and version
