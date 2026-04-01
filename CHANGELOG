@@ -1,4 +1,10 @@
 # -*- mode: org -*-
+* v4.4.3    2026-04-01
+
+- Increase CI security.  8638515
+
+- Adjust to change in Emacs 31.0.50.  6fbd5c4
+
 * v4.4.2    2026-03-01
 
 - Old man yells at cloud.
