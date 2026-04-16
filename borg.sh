@@ -61,15 +61,15 @@ clone () {
             rename=
             echo "Cloning $path from origin ($url)"
             case "$name,$url" in
-            elpa-admin,*git.savannah.gnu.org*/git/emacs/elpa.git)
+            elpa-admin,*git.savannah.gnu.org*/git/elpa/gnu.git)
                 args="--no-tags --single-branch --branch $name"
                 rename=$name
                 ;;
-            *,*git.savannah.gnu.org*/git/emacs/elpa.git)
+            *,*git.savannah.gnu.org*/git/elpa/gnu.git)
                 args="--no-tags --single-branch --branch externals/$name"
                 rename=externals/$name
                 ;;
-            *,*git.savannah.gnu.org*/git/emacs/nongnu.git)
+            *,*git.savannah.gnu.org*/git/elpa/nongnu.git)
                 args="--no-tags --single-branch --branch elpa/$name"
                 rename=elpa/$name
                 ;;
