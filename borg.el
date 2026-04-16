@@ -124,10 +124,10 @@ enclosed in a `progn' form.  ELSE-FORMS may be empty."
 (declare-function epkg "epkg" (name))
 (declare-function epkgs "epkg" (&optional select predicates))
 ;; check-declare doesn't know about defclass.
-;; (declare-function epkg-git-package-p "epkg" (obj))
-;; (declare-function epkg-github-package-p "epkg" (obj))
-;; (declare-function epkg-gitlab-package-p "epkg" (obj))
 ;; (declare-function epkg-orphaned-package-p "epkg" (obj))
+;; (declare-function epkg-shelved-package-p "epkg" (obj))
+;; (declare-function epkg-wiki-package-p "epkg" (obj))
+(declare-function epkg--borg-clone-url "epkg" (pkg))
 (declare-function epkg-read-package "epkg" (prompt &optional default predicate))
 (declare-function format-spec "format-spec"
                   (format specification &optional ignore-missing split))
@@ -463,16 +463,7 @@ to variable `borg-rewrite-urls-alist' (which see)."
   (if (require 'epkg nil t)
       (let* ((name (completing-read prompt (epkgs 'name)
                                     nil nil nil 'epkg-package-history))
-             (pkg  (epkg name))
-             (url  (and pkg
-                        (with-no-warnings
-                          (if (and (epkg-git-package--eieio-childp pkg)
-                                   (not (or (epkg-subtree-package-p pkg)
-                                            (epkg-nongnu-elpa-package-p pkg)
-                                            (epkg-gnu-elpa-package-p pkg)
-                                            (epkg-wiki-package-p pkg))))
-                              (eieio-oref pkg 'url)
-                            (eieio-oref pkg 'mirror-url))))))
+             (url (epkg--borg-clone-url (epkg name))))
         (when url
           (pcase-dolist (`(,orig . ,base) borg-rewrite-urls-alist)
             (when (string-prefix-p orig url)
@@ -1102,10 +1093,25 @@ build and activate the drone."
            (list (< (prefix-numeric-value current-prefix-arg) 0))))
   (borg--maybe-confirm-unsafe-action "assimilate" package url)
   (message "Assimilating %s..." package)
-  (let ((default-directory borg-top-level-directory))
+  (let* ((default-directory borg-top-level-directory)
+         (path (file-relative-name (borg-worktree package))))
     (borg--maybe-reuse-gitdir package)
-    (borg--call-git package "submodule" "add" "--name" package url
-                    (file-relative-name (borg-worktree package)))
+    (pcase url
+      ((or "https://https.git.savannah.gnu.org/git/elpa/gnu.git"
+           "https://https.git.savannah.gnu.org/git/elpa/nongnu.git")
+       ;; On its own "git submodule add" cannot jump through to the
+       ;; extra hoops put in place by [Non]GNU ELPA.
+       (borg-clone package url)
+       (borg--call-git
+        package "submodule" "add" "--name" package
+        (pcase url
+          ("https://https.git.savannah.gnu.org/git/elpa/gnu.git"
+           (list "--branch" (concat "externals/" package)))
+          ("https://https.git.savannah.gnu.org/git/elpa/nongnu.git"
+           (list "--branch" (concat "elpa/" package))))
+        url path))
+      (_
+       (borg--call-git package "submodule" "add" "--name" package url path)))
     (borg--sort-submodule-sections ".gitmodules")
     (borg--call-git package "add" ".gitmodules")
     (borg--maybe-absorb-gitdir package))
@@ -1128,14 +1134,34 @@ with a prefix argument, then also read the url in the minibuffer."
         (topdir (borg-worktree package)))
     (when (file-exists-p topdir)
       (user-error "%s already exists" topdir))
-    (let ((default-directory borg-top-level-directory))
+    (let* ((default-directory borg-top-level-directory)
+           (path (file-relative-name topdir)))
       (borg--maybe-reuse-gitdir package)
       (unless (file-exists-p topdir)
-        (borg--call-git package "clone"
-                        (concat "--separate-git-dir="
-                                ;; Git fails if this ends with slash.
-                                (directory-file-name gitdir))
-                        url (file-relative-name topdir)))
+        (borg--call-git
+         package "clone"
+         ;; Git fails if this ends with a slash.
+         (concat "--separate-git-dir=" (directory-file-name gitdir))
+         ;; The nongnu and gnu repositories track may unrelated packages,
+         ;; forcing us to perform extra work to discard all the unrelated
+         ;; branches (and accidentally pushed tags).
+         (pcase url
+           ("https://https.git.savannah.gnu.org/git/elpa/gnu.git"
+            (list "--no-tags" "--single-branch"
+                  "--branch" (concat "externals/" package)))
+           ("https://https.git.savannah.gnu.org/git/elpa/nongnu.git"
+            (list "--no-tags" "--single-branch"
+                  "--branch" (concat "elpa/" package))))
+         url path)
+        (pcase url
+          ("https://https.git.savannah.gnu.org/git/elpa/gnu.git"
+           (let ((default-directory (borg-worktree package)))
+             (borg--call-git package "branch" "-m"
+                             (concat "externals/" package) "main")))
+          ("https://https.git.savannah.gnu.org/git/elpa/nongnu.git"
+           (let ((default-directory (borg-worktree package)))
+             (borg--call-git package "branch" "-m"
+                             (concat "elpa/" package) "main")))))
       (borg--link-gitdir package))
     (borg--refresh-magit)
     (message "Cloning %s...done" package)))
@@ -1308,7 +1334,7 @@ Emacs initialization took.  If that hook has already run, do nothing."
   (let ((process-connection-type nil)
         (buffer (generate-new-buffer
                  (concat " *Borg Git" (and pkg (concat " " pkg)) "*"))))
-    (if (eq (apply #'call-process "git" nil buffer nil args) 0)
+    (if (zerop (apply #'call-process "git" nil buffer nil (flatten-tree args)))
         (kill-buffer buffer)
       (with-current-buffer buffer
         (special-mode))

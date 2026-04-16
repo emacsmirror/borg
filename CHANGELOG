@@ -1,4 +1,13 @@
 # -*- mode: org -*-
+* v4.5.0    UNRELEASED
+
+- Support assimilating packages from the repositories used for GNU
+  ELPA and NonGNU ELPA.  Previously such packages were installed from
+  the respective repository on the Emacsmirror, because the [Non]GNU
+  ELPA repositories track every package they distribute, which we are
+  not interested in, when installing a single package.  Dealing with
+  this complication requires a lot of code on our side.
+
 * v4.4.3    2026-04-01
 
 - Increase CI security.  8638515
