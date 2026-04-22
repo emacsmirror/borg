@@ -105,16 +105,18 @@ set `use-package-verbose' to `debug'.  Reset these variables using
 (require 'pcase)
 (require 'subr-x)
 
-(defmacro static-if (condition then-form &rest else-forms) ; since Emacs 30.1
-  "A conditional compilation macro.
+(eval-and-compile ; static-if
+  (unless (fboundp 'static-if) ; since Emacs 30.1
+    (defmacro static-if (condition then-form &rest else-forms)
+      "A conditional compilation macro.
 Evaluate CONDITION at macro-expansion time.  If it is non-nil,
 expand the macro to THEN-FORM.  Otherwise expand it to ELSE-FORMS
 enclosed in a `progn' form.  ELSE-FORMS may be empty."
-  (declare (indent 2)
-           (debug (sexp sexp &rest sexp)))
-  (if (eval condition lexical-binding)
-      then-form
-    (cons 'progn else-forms)))
+      (declare (indent 2)
+               (debug (sexp sexp &rest sexp)))
+      (if (eval condition lexical-binding)
+          then-form
+        (cons 'progn else-forms)))))
 
 (static-if (require 'loaddefs-gen nil t)
     (require 'loaddefs-gen)
