@@ -1,4 +1,8 @@
 # -*- mode: org -*-
+* v4.6.3    2026-11-01
+
+- The previous release accidentally dropped support for Emacs 28.
+
 * v4.6.2    2026-11-01
 
 - Thoughts and whitespace.
